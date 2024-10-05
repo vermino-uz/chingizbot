@@ -105,11 +105,18 @@ class TelegramController extends Controller
                 
             bot('sendMessage', [
                 'chat_id' => $chatId,
-                'text' => "*Xush kelibsiz*😊
+                'text' => "*Salom👋
+Man o'zbekcha va arabcha reklamalarni, ssilkalarni va join, left kabi (kirdi, chiqdilarni) guruhlarda o'chirib beraman xurmat bilan Chingiz
+
+Man ishlashim uchun guruhizga qo'shib ADMIN berishiz kerak😄*
 
 ⚡️Reklama bo'yicha: @Reklama\_Chingizbot",
                 'parse_mode' => 'Markdown',
                 'reply_markup' => inlineKeyboard([
+                
+                    [
+                        ['text' => "➕ Guruhga qo'shish", 'url' => 'https://t.me/' . env('BOT_USERNAME') . '?startgroup=start&admin=change_info+delete_messages+restrict_members+pin_messages+manage_video_chats+promote_members+invite_users']
+                    ],
                     [
                         ['text' => "💻 Dasturchi",'url' => 'tg://user?id=1344497552']
                     ]
@@ -154,11 +161,13 @@ class TelegramController extends Controller
                 'message_id' => $messageId,
             ]);
             joinChannel($chatId);
-            greeting($chatId);
+            if ($chatType === 'private') {
+                greeting($chatId);
+            }
         }
 
 
-        if ($text === '/start') {
+        if ($text === '/start' && $chatType === 'private') {
             $user = BotUser::firstOrCreate(
                 ['chat_id' => $fromId],
                 ['status' => 1]
@@ -168,7 +177,7 @@ class TelegramController extends Controller
             }
         }
 
-        if ($text === '🔊Barcha goloslar') {
+        if ($text === '🔊Barcha goloslar' && $chatType === 'private') {
             $page = 1;
             $perPage = 10;
             $voices = Voice::orderBy('id', 'asc')->paginate($perPage, ['*'], 'page', $page);
@@ -227,7 +236,7 @@ class TelegramController extends Controller
         }
 
 
-        if($text === "🔝 10 Goloslar"){
+        if($text === "🔝 10 Goloslar" && $chatType === 'private'){
             $voices = Voice::orderBy('uses', 'desc')->limit(10)->get();
             $messageText = "*🔝 10 Goloslar:*\n\n";
             foreach ($voices as $voice) {
@@ -350,7 +359,7 @@ class TelegramController extends Controller
                         'parse_mode' => 'Markdown',
                     ]);
                 }
-            } else {
+            } else if ($chatType === 'private') {
                 greeting($chatId);
             }
         }
@@ -448,6 +457,239 @@ class TelegramController extends Controller
                 bot('sendMessage', [
                     'chat_id' => $chatId,
                     'text' => "Faqat adminlar /ban buyrug'ini ishlatishi mumkin.",
+                    'parse_mode' => 'Markdown',
+                ]);
+            }
+        }
+        function del(){
+            global $chatId, $messageId;
+            bot('deleteMessage', [
+                'chat_id' => $chatId,
+                'message_id' => $messageId,
+            ]);
+        }
+        // Handle message deletion for messages containing links, URLs, or t.me
+        // Check if the message contains links or t.me
+        if (preg_match('/(https?:\/\/|t\.me|@\w+)/i', $text)) {
+            // Delete the message
+            bot('deletemessage', [
+                'chat_id' => $chatId,
+                'message_id' => $messageId,
+            ]);
+
+            // Optionally, send a warning message
+            bot('sendMessage', [
+                'chat_id' => $chatId,
+                'text' => "Reklamalarni yuborish mumkin emas",
+                'parse_mode' => 'Markdown',
+            ]);
+        }
+
+
+        
+        // Handle mute command
+        if (strpos($text, '/mute') === 0) {
+            // Check if the user is an admin
+            $chatMember = bot('getChatMember', [
+                'chat_id' => $chatId,
+                'user_id' => $fromId,
+            ]);
+            $isAdmin = in_array($chatMember->result->status, ['creator', 'administrator']);
+
+            if ($isAdmin) {
+                $parts = explode(' ', $text);
+                $userToMute = null;
+                $duration = null;
+
+                if (isset($message['reply_to_message'])) {
+                    $userToMute = $message['reply_to_message']['from']['id'];
+                    $duration = isset($parts[1]) ? $parts[1] : null;
+                } elseif (count($parts) === 3) {
+                    $userToMute = str_replace('@', '', $parts[1]);
+                    $duration = $parts[2];
+                }
+
+                if (!$userToMute || !$duration) {
+                    bot('sendMessage', [
+                        'chat_id' => $chatId,
+                        'text' => "Noto'g'ri format. Iltimos, /mute @username 5h formatida yuboring yoki xabarga javob bering va /mute 5h deb yozing.",
+                        'parse_mode' => 'Markdown',
+                    ]);
+                    return;
+                }
+
+                // Convert duration to seconds
+                $seconds = 0;
+                if (preg_match('/^(\d+)([hmd])$/', $duration, $matches)) {
+                    $value = intval($matches[1]);
+                    $unit = $matches[2];
+                    switch ($unit) {
+                        case 'h':
+                            $seconds = $value * 3600;
+                            break;
+                        case 'm':
+                            $seconds = $value * 60;
+                            break;
+                        case 'd':
+                            $seconds = $value * 86400;
+                            break;
+                    }
+                } else {
+                    bot('sendMessage', [
+                        'chat_id' => $chatId,
+                        'text' => "Noto'g'ri vaqt formati. Iltimos, h (soat), m (daqiqa) yoki d (kun) dan foydalaning.",
+                        'parse_mode' => 'Markdown',
+                    ]);
+                    return;
+                }
+
+                // Get the user ID if username was provided
+                if (!is_numeric($userToMute)) {
+                    $chatMember = bot('getChatMember', [
+                        'chat_id' => $chatId,
+                        'user_id' => "@$userToMute",
+                    ]);
+
+                    if (!$chatMember->ok) {
+                        bot('sendMessage', [
+                            'chat_id' => $chatId,
+                            'text' => "Foydalanuvchi topilmadi.",
+                            'parse_mode' => 'Markdown',
+                        ]);
+                        return;
+                    }
+
+                    $userToMute = $chatMember->result->user->id;
+                }
+
+                // Mute the user
+                $muteResult = bot('restrictChatMember', [
+                    'chat_id' => $chatId,
+                    'user_id' => $userToMute,
+                    'until_date' => time() + $seconds,
+                    'permissions' => json_encode([
+                        'can_send_messages' => false,
+                        'can_send_media_messages' => false,
+                        'can_send_polls' => false,
+                        'can_send_other_messages' => false,
+                        'can_add_web_page_previews' => false,
+                        'can_change_info' => false,
+                        'can_invite_users' => false,
+                        'can_pin_messages' => false,
+                    ]),
+                ]);
+
+                if ($muteResult->ok) {
+                    bot('sendMessage', [
+                        'chat_id' => $chatId,
+                        'text' => "Foydalanuvchi $duration muddatga cheklab qo'yildi.",
+                        'parse_mode' => 'Markdown',
+                    ]);
+                } else {
+                    bot('sendMessage', [
+                        'chat_id' => $chatId,
+                        'text' => "Foydalanuvchini cheklab bo'lmadi. Iltimos, kerakli huquqlarim borligiga ishonch hosil qiling.",
+                        'parse_mode' => 'Markdown',
+                    ]);
+                }
+            } else {
+                bot('sendMessage', [
+                    'chat_id' => $chatId,
+                    'text' => "Faqat adminlar /mute buyrug'ini ishlatishi mumkin.",
+                    'parse_mode' => 'Markdown',
+                ]);
+            }
+        }
+        elseif (strpos($text, '/unmute') === 0) {
+            $chatMember = bot('getChatMember', [
+                'chat_id' => $chatId,
+                'user_id' => $fromId,
+            ]);
+
+            if (in_array($chatMember->result->status, ['creator', 'administrator'])) {
+                $userToUnmute = null;
+
+                if (isset($message['reply_to_message'])) {
+                    $userToUnmute = $message['reply_to_message']['from']['id'];
+                } else {
+                    $parts = explode(' ', $text);
+                    if (count($parts) >= 2) {
+                        $userToUnmute = trim($parts[1]);
+                    }
+                }
+
+                if (!$userToUnmute) {
+                    bot('sendMessage', [
+                        'chat_id' => $chatId,
+                        'text' => "Foydalanuvchi nomini yoki ID sini kiriting yoki xabarga javob bering. Masalan: /unmute @username yoki /unmute 123456789",
+                        'parse_mode' => 'Markdown',
+                    ]);
+                    return;
+                }
+
+                // Check if the input is a username or user ID
+                if (strpos($userToUnmute, '@') === 0) {
+                    $userToUnmute = substr($userToUnmute, 1);
+                    $chatMember = bot('getChatMember', [
+                        'chat_id' => $chatId,
+                        'user_id' => "@$userToUnmute",
+                    ]);
+                } elseif (!is_numeric($userToUnmute)) {
+                    $chatMember = bot('getChatMember', [
+                        'chat_id' => $chatId,
+                        'user_id' => "@$userToUnmute",
+                    ]);
+                } else {
+                    $chatMember = bot('getChatMember', [
+                        'chat_id' => $chatId,
+                        'user_id' => $userToUnmute,
+                    ]);
+                }
+
+                if (!$chatMember->ok) {
+                    bot('sendMessage', [
+                        'chat_id' => $chatId,
+                        'text' => "Foydalanuvchi topilmadi.",
+                        'parse_mode' => 'Markdown',
+                    ]);
+                    return;
+                }
+
+                $userToUnmuteId = $chatMember->result->user->id;
+
+                // Unmute the user
+                $unmuteResult = bot('restrictChatMember', [
+                    'chat_id' => $chatId,
+                    'user_id' => $userToUnmuteId,
+                    'permissions' => json_encode([
+                        'can_send_messages' => true,
+                        'can_send_media_messages' => true,
+                        'can_send_polls' => true,
+                        'can_send_other_messages' => true,
+                        'can_add_web_page_previews' => true,
+                        'can_change_info' => true,
+                        'can_invite_users' => true,
+                        'can_pin_messages' => true,
+                    ]),
+                ]);
+
+                if ($unmuteResult->ok) {
+                    bot('sendMessage', [
+                        'chat_id' => $chatId,
+                        'text' => "Foydalanuvchidan cheklov olib tashlandi.",
+                        'parse_mode' => 'Markdown',
+                    ]);
+                } else {
+                    bot('sendMessage', [
+                        'chat_id' => $chatId,
+                        'text' => "Foydalanuvchidan cheklovni olib bo'lmadi. Iltimos, kerakli huquqlarim borligiga ishonch hosil qiling.",
+                        'parse_mode' => 'Markdown',
+                    ]);
+                }
+            } else {
+                bot('sendMessage', [
+                    'chat_id' => $chatId,
+                    'text' => "Faqat adminlar /unmute buyrug'ini ishlatishi mumkin.",
                     'parse_mode' => 'Markdown',
                 ]);
             }
