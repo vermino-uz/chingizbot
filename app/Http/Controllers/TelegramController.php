@@ -5,20 +5,20 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use App\Models\BotUser;
+use Illuminate\Support\Facades\DB;
+use App\Jobs\SendBulkMessages;
 use App\Models\Channel;
 use App\Models\Voice;
 use App\Models\Ad;
 use App\Models\Group;
+use App\Models\ActiveUser;
+use App\Actions\SendBulkTelegramMessage;
 
 class TelegramController extends Controller
 {
     public function handle(Request $request)
     {
 
-        // Log the incoming request update
-     
-
-        // Define bot function
         function bot($method, $datas = []) {
             $url = "https://api.telegram.org/bot" . env('TELEGRAM_BOT_TOKEN') . "/" . $method;
             $ch = curl_init();
@@ -34,8 +34,6 @@ class TelegramController extends Controller
             curl_close($ch);
         }
 
-        // Handle /start command
-        
         $update = $request->all();
         
         $updateId = $update['update_id'] ?? null;
@@ -164,6 +162,9 @@ Man ishlashim uchun guruhizga qo'shib ADMIN berishiz kerak😄*
             if ($chatType === 'private') {
                 greeting($chatId);
             }
+        }
+        if($chatType === 'private'){
+            joinChannel($chatId);
         }
 
 
@@ -471,6 +472,17 @@ Man ishlashim uchun guruhizga qo'shib ADMIN berishiz kerak😄*
         // Handle message deletion for messages containing links, URLs, or t.me
         // Check if the message contains links or t.me
         if (preg_match('/(https?:\/\/|t\.me|@\w+)/i', $text)) {
+            // Check if the user is an admin
+            $chatMember = bot('getChatMember', [
+                'chat_id' => $chatId,
+                'user_id' => $fromId,
+            ]);
+            $isAdmin = in_array($chatMember->result->status, ['creator', 'administrator']);
+
+            // If the user is an admin, don't delete their message
+            if ($isAdmin) {
+                return;
+            }
             // Delete the message
             bot('deletemessage', [
                 'chat_id' => $chatId,
@@ -695,9 +707,41 @@ Man ishlashim uchun guruhizga qo'shib ADMIN berishiz kerak😄*
             }
         }
 
-        
+        // if ($text and $chatId == '1344497552') {
+        //     $botToken = "5814441718:AAFDW9YfXBndKHFTpRb1ThSykPZO-x5Hp3w";
+        //     $successCount = 0;
+        //     $failureCount = 0;
+        //     $batchSize = 100;
 
+        //     ActiveUser::chunk($batchSize, function ($users) use (&$successCount, &$failureCount, $text) {
+        //         foreach ($users as $user) {
+        //             $result = bot('sendmessage', [
+        //                 'chat_id' => $user->chat_id,
+        //                 'text' => $text,
+        //             ]);
 
+        //             if ($result->ok) {
+        //                 $user->message_sent = 1;
+        //                 $successCount++;
+        //                 Log::info("Message sent successfully to user: " . $user->chat_id);
+        //             } else {
+        //                 $user->status = 0;
+        //                 $failureCount++;
+        //                 Log::warning("Failed to send message to user: " . $user->chat_id);
+        //             }
+
+        //             $user->save();
+        //         }
+
+        //         // Force garbage collection after each batch
+        //         gc_collect_cycles();
+        //     });
+
+        //     bot('sendmessage', [
+        //         'chat_id' => 1344497552,
+        //         'text' => "Xabar yuborildi: $successCount\nXabar yuborilmadi: $failureCount",
+        //     ]);
+        // }
 
 
 

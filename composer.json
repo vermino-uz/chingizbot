@@ -7,11 +7,13 @@
     "require": {
         "php": "^8.2",
         "filament/filament": "^3.2",
+        "guzzlehttp/guzzle": "^7.9",
         "irazasyed/telegram-bot-sdk": "^3.14",
         "laravel/framework": "^11.9",
         "laravel/telescope": "^5.2",
         "laravel/tinker": "^2.9",
-        "livewire/livewire": "^3.5"
+        "livewire/livewire": "^3.5",
+        "predis/predis": "^2.2"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
