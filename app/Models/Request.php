@@ -5,9 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Channel extends Model
+class Request extends Model
 {
     use HasFactory;
-    protected $table = 'channels';
-    protected $fillable = ['name', 'chat_id', 'link', 'required'];
 }

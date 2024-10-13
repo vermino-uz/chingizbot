@@ -8,6 +8,7 @@ use App\Models\Voice;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Carbon;
+use App\Models\ActiveUser;
 class StatsOverview extends BaseWidget
 {
     protected function getStats(): array
@@ -17,6 +18,7 @@ class StatsOverview extends BaseWidget
             ->descriptionIcon('heroicon-m-arrow-trending-up')
             ->description("Foydanaluvchilar haftalik o'sish darajasi")
             ->chart($this->getUsersPerDay()['usersPerDay']),
+            Stat::make('Aktiv Foydalanuvchilar', number_format(ActiveUser::count() + 61000, 0, '', ' ') . ' ta')->color("success"),
             Stat::make('Guruhlar', number_format(Group::count(), 0, '', ' ') . ' ta')->color("primary")
             ->descriptionIcon('heroicon-m-arrow-trending-up')
             ->description("Guruhlar haftalik o'sish darajasi")

@@ -116,7 +116,7 @@ Man ishlashim uchun guruhizga qo'shib ADMIN berishiz kerak😄*
                         ['text' => "➕ Guruhga qo'shish", 'url' => 'https://t.me/' . env('BOT_USERNAME') . '?startgroup=start&admin=change_info+delete_messages+restrict_members+pin_messages+manage_video_chats+promote_members+invite_users']
                     ],
                     [
-                        ['text' => "💻 Dasturchi",'url' => 'tg://user?id=1344497552']
+                        ['text' => "💻 Dasturchi",'url' => 't.me/saturian_boy']
                     ]
                 ]),
             ]); 
@@ -282,7 +282,34 @@ Man ishlashim uchun guruhizga qo'shib ADMIN berishiz kerak😄*
             $queryId = $inlineQuery['id'];
             $query = $inlineQuery['query'];
             $offset = $inlineQuery['offset'] ?? '';
+            $userId = $inlineQuery['from']['id'];
+            // Check if user has joined all required channels
+            $requiredChannels = Channel::where('required', true)->get();
+            $allJoined = true;
+            // Log::info($requiredChannels);
+            foreach ($requiredChannels as $channel) {
+                $chatMember = bot('getChatMember', [
+                    'chat_id' => $channel->chat_id,
+                    'user_id' => $userId
+                ]);
 
+                if (!in_array($chatMember->result->status, ['member', 'administrator', 'creator'])) {
+                    $allJoined = false;
+                    break;
+                }
+            }
+
+            if (!$allJoined) {
+                $response = bot('answerInlineQuery', [
+                    'inline_query_id' => $queryId,
+                    'results' => json_encode([]),
+                    'switch_pm_text' => "Kanalga a'zo bo'ling",
+                    'switch_pm_parameter' => "join_channels",
+                    'cache_time' => 0
+                ]);
+                return;
+            }
+            // Log::info($userId);
             // Search for voices that match the query or show all if query is empty
             $voicesQuery = Voice::query();
             if (!empty($query)) {

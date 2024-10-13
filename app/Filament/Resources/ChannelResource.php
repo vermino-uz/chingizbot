@@ -30,6 +30,11 @@ class ChannelResource extends Resource
                 TextInput::make('name'),
                 TextInput::make('chat_id'),
                 TextInput::make('link'),
+                Forms\Components\DateTimePicker::make('created_at')
+                    ->default(now()->timezone('Asia/Tashkent'))
+                    ->displayFormat('Y-m-d H:i')
+                    ->timezone('Asia/Tashkent')
+                    ->hiddenOn('create'),
             ]);
     }
 
@@ -40,6 +45,20 @@ class ChannelResource extends Resource
                 Tables\Columns\TextColumn::make('name'),
                 Tables\Columns\TextColumn::make('chat_id'),
                 Tables\Columns\TextColumn::make('link'),
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Qo\'shilgan vaqt')
+                    ->dateTime()
+                    ->sortable()
+                    ->formatStateUsing(function ($state) {
+                        $diff = $state->diff(now());
+                        $parts = [];
+                        
+                        if ($diff->d > 0) $parts[] = $diff->d . ' kun';
+                        if ($diff->h > 0) $parts[] = $diff->h . ' soat';
+                        if ($diff->i > 0) $parts[] = $diff->i . ' daqiqa';
+                        
+                        return implode(' ', $parts) . ' oldin';
+                    }),
             ])
             ->filters([
                 //
@@ -64,7 +83,11 @@ class ChannelResource extends Resource
                     ->action(function (Channel $record, array $data) {
                         $record->update($data);
                     })
-                    ->requiresConfirmation()
+                    ->requiresConfirmation(),
+                Tables\Actions\ViewAction::make()
+                    ->label('View')
+                    ->icon('heroicon-o-eye')
+                    
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
